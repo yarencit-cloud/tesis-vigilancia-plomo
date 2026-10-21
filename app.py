@@ -186,4 +186,446 @@ menu = st.sidebar.radio(
 # MÓDULO 1: CAPTURA Y VALIDACIÓN DE DATOS
 # ------------------------------------------------------------------------------
 if menu == "1. Captura y Evaluación Individual":
-    st.subheader("Módulo 1: Capt
+    st.subheader("Módulo 1: Captura de Variables Clínicas y Epidemiológicas")
+    st.info(
+        "Ingrese la información correspondiente al expediente del paciente para procesar la clasificación preliminar."
+    )
+
+    st.markdown("##### Ubicación Geográfica de la Evaluación")
+    es_torreon = (
+        st.radio(
+            "¿El sitio de evaluación se ubica en Torreón, Coahuila (~1,120 msnm)?",
+            ["Sí", "No"],
+            key="radio_geo",
+        )
+        == "Sí"
+    )
+
+    if not es_torreon:
+        altitud_custom = st.number_input(
+            "Ingrese la altitud geográfica del sitio de evaluación (msnm):",
+            min_value=0,
+            max_value=5000,
+            value=1000,
+            key="num_altitud",
+        )
+    else:
+        altitud_custom = 1120
+
+    st.write("---")
+
+    # Formulario habilitado con clear_on_submit=True
+    with st.form("form_captura", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("##### Factores Clínicos y Demográficos")
+            codigo = st.text_input(
+                "Código de Expediente (Anónimo):", placeholder="Ej. INF-2026-001"
+            )
+            edad = st.number_input(
+                "Edad del Menor (Años):", min_value=1, max_value=17, value=4
+            )
+            bll = st.number_input(
+                "Nivel de Plomo en Sangre (BLL en µg/dL):",
+                min_value=0.0,
+                max_value=80.0,
+                value=3.2,
+                step=0.1,
+            )
+            hb_medida = st.number_input(
+                "Hemoglobina de Laboratorio (g/dL):",
+                min_value=3.0,
+                max_value=20.0,
+                value=12.2,
+                step=0.1,
+            )
+
+        with col2:
+            st.markdown("##### Factores Ambientales y de Exposición")
+            residencia = st.number_input(
+                "Tiempo de Residencia en Zona de Riesgo (Años):",
+                min_value=0,
+                max_value=17,
+                value=2,
+            )
+            cercania = st.selectbox(
+                "¿Reside a menos de 1 km de una Fuente Contaminante?",
+                [False, True],
+                format_func=lambda x: "Sí" if x else "No",
+            )
+            antecedentes = st.selectbox(
+                "¿Antecedente de Loza Vidriada, Polvo o Trabajo Parental?",
+                [False, True],
+                format_func=lambda x: "Sí" if x else "No",
+            )
+
+        bot_evaluar = st.form_submit_button(
+            "🧪 Procesar y Guardar Caso", use_container_width=True
+        )
+
+    if bot_evaluar:
+        if not codigo.strip():
+            st.error("Error de Validación: Debe ingresar un Código de Expediente válido.")
+        elif residencia > edad:
+            st.error(
+                f"Error de Coherencia Biológica: El tiempo de residencia ({residencia} años) no puede ser mayor que la edad del niño ({edad} años)."
+            )
+        else:
+            (
+                r_porc,
+                riesgo,
+                color,
+                hb_ajustada,
+                delta_hb,
+                altitud_eval,
+            ) = calcular_riesgo_ponderado_oficial(
+                edad,
+                bll,
+                hb_medida,
+                residencia,
+                cercania,
+                antecedentes,
+                es_torreon,
+                altitud_custom,
+            )
+
+            try:
+                conn = conectar_bd()
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO registros 
+                    (codigo_paciente, edad, bll, hb_medida, hb_ajustada, altitud_evaluacion, es_torreon, residencia, cercania, antecedentes, indice_r_porcentaje, nivel_riesgo)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        codigo,
+                        edad,
+                        bll,
+                        hb_medida,
+                        hb_ajustada,
+                        altitud_eval,
+                        int(es_torreon),
+                        residencia,
+                        int(cercania),
+                        int(antecedentes),
+                        r_porc,
+                        riesgo,
+                    ),
+                )
+                conn.commit()
+                conn.close()
+
+                st.session_state["ultimo_resultado"] = {
+                    "codigo": codigo,
+                    "r_porc": r_porc,
+                    "riesgo": riesgo,
+                    "color": color,
+                    "hb_ajustada": hb_ajustada,
+                    "delta_hb": delta_hb,
+                    "altitud_eval": altitud_eval,
+                    "duplicado": False,
+                }
+            except sqlite3.IntegrityError:
+                st.session_state["ultimo_resultado"] = {
+                    "codigo": codigo,
+                    "r_porc": r_porc,
+                    "riesgo": riesgo,
+                    "color": color,
+                    "hb_ajustada": hb_ajustada,
+                    "delta_hb": delta_hb,
+                    "altitud_eval": altitud_eval,
+                    "duplicado": True,
+                }
+
+            st.rerun()
+
+    # Despliegue de los resultados guardados en sesión
+    if "ultimo_resultado" in st.session_state:
+        res = st.session_state["ultimo_resultado"]
+
+        if res["duplicado"]:
+            st.warning(
+                f"CUIDADO: El código '{res['codigo']}' ya existe en la base de datos. Se muestra la evaluación del expediente actual:"
+            )
+        else:
+            st.success(
+                f"Registro '{res['codigo']}' guardado correctamente en la Base de Datos."
+            )
+
+        st.write("---")
+        st.subheader("Resultado de la Clasificación de Riesgo Ponderado")
+
+        res_col1, res_col2 = st.columns([1, 2])
+
+        with res_col1:
+            st.metric(label="Índice de Riesgo (R %)", value=f"{res['r_porc']}%")
+            st.caption(
+                f"Ajuste por Altitud ({res['altitud_eval']} msnm): **-{res['delta_hb']:.2f} g/dL** | Hb Ajustada: **{res['hb_ajustada']:.2f} g/dL**"
+            )
+
+        with res_col2:
+            if res["color"] == "green":
+                st.success(f"### Clasificación: **{res['riesgo'].upper()}**")
+                st.markdown("""
+                **Recomendaciones Clínicas y Epidemiológicas:**
+                * **Monitoreo:** Mantener vigilancia comunitaria de rutina en campañas sanitarias.
+                * **Medidas Preventivas:** Promover hábitos comunitarios de higiene (lavado frecuente de manos mano-boca).
+                * **Nutrición:** Fomentar una dieta balanceada rica en calcio, hierro y vitamina C para mitigar la absorción de plomo.
+                """)
+            elif res["color"] == "orange":
+                st.warning(f"### CUIDADO - Clasificación: **{res['riesgo'].upper()}**")
+                st.markdown("""
+                **Recomendaciones Clínicas y Epidemiológicas:**
+                * **Seguimiento:** Monitoreo comunitario continuo y reprogramación de prueba de plomo en sangre (BLL) en 3 a 6 meses.
+                * **Evaluación Médica:** Canalizar a evaluación nutricional para descartar deficiencia de hierro/anemia.
+                * **Intervención Doméstica:** Identificar y eliminar la fuente de exposición en el hogar (inspección de loza vidriada o descascarillado de pintura).
+                """)
+            else:
+                st.error(f"### CUIDADO - Clasificación: **{res['riesgo'].upper()}**")
+                st.markdown("""
+                **Recomendaciones Clínicas y Epidemiológicas:**
+                * **Prioridad Alta:** Canalización prioritaria a valoración médica especializada (pediatría/toxicología) e intervención ambiental inmediata.
+                * **Evaluación del Neurodesarrollo:** Realizar tamizaje y seguimiento del desarrollo psicomotor y neurocognitivo.
+                * **Acción Sanitaria:** Notificación a las autoridades de salud pública para inspección ambiental en la vivienda y radio de 1 km.
+                """)
+
+# ------------------------------------------------------------------------------
+# MÓDULO 2: BASE DE DATOS Y CARGA MASIVA
+# ------------------------------------------------------------------------------
+elif menu == "2. Base de Datos y Carga Epidemiológica":
+    st.subheader("Módulo 2: Consulta, Exportación y Carga Masiva de Expedientes")
+
+    tab1, tab2 = st.tabs([
+        "Consulta de Expedientes",
+        "Carga Masiva para Epidemiología (CSV/Excel)",
+    ])
+
+    with tab1:
+        conn = conectar_bd()
+        df = pd.read_sql_query(
+            "SELECT id, fecha, codigo_paciente, edad, bll, hb_medida, hb_ajustada, altitud_evaluacion, residencia, cercania, antecedentes, indice_r_porcentaje, nivel_riesgo FROM registros ORDER BY id DESC",
+            conn,
+        )
+        conn.close()
+
+        if df.empty:
+            st.info("No existen casos registrados en la base de datos comunitaria.")
+        else:
+            st.dataframe(df, use_container_width=True)
+            st.download_button(
+                "Descargar Base de Datos (CSV)",
+                data=df.to_csv(index=False).encode("utf-8"),
+                file_name="expedientes_vigilancia_plomo.csv",
+                mime="text/csv",
+            )
+
+    with tab2:
+        st.markdown("#### Carga Masiva de Datos para Análisis Epidemiológico")
+        st.write(
+            "Sube un archivo de Excel o CSV con los registros recolectados en brigadas de campo."
+        )
+
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            es_torreon_masivo = (
+                st.radio(
+                    "¿La base de datos corresponde a evaluaciones en Torreón, Coahuila (~1,120 msnm)?",
+                    ["Sí", "No"],
+                    key="radio_masivo",
+                )
+                == "Sí"
+            )
+        with col_c2:
+            if not es_torreon_masivo:
+                altitud_masiva = st.number_input(
+                    "Altitud promedio del sitio de recolección (msnm):",
+                    min_value=0,
+                    max_value=5000,
+                    value=1000,
+                    key="alt_masivo",
+                )
+            else:
+                altitud_masiva = 1120
+
+        st.markdown(
+            "**Columnas requeridas:** `codigo_paciente`, `edad`, `bll`, `hb_medida`, `residencia`, `cercania` (0 o 1), `antecedentes` (0 o 1)"
+        )
+
+        archivo_subido = st.file_uploader(
+            "Seleccione un archivo (.csv o .xlsx):", type=["csv", "xlsx"]
+        )
+
+        if archivo_subido is not None:
+            try:
+                if archivo_subido.name.endswith(".csv"):
+                    df_cargado = pd.read_csv(archivo_subido)
+                else:
+                    df_cargado = pd.read_excel(archivo_subido)
+
+                st.write("Vista previa de los datos cargados:")
+                st.dataframe(df_cargado.head(), use_container_width=True)
+
+                if st.button("Procesar y Guardar Lote Completo"):
+                    registros_exitosos = 0
+                    registros_omitidos = 0
+
+                    conn = conectar_bd()
+                    cursor = conn.cursor()
+
+                    for _, fila in df_cargado.iterrows():
+                        try:
+                            cod = str(fila["codigo_paciente"])
+                            ed = int(fila["edad"])
+                            bll_val = float(fila["bll"])
+                            hb_val = float(fila["hb_medida"])
+                            res_val = int(fila["residencia"])
+                            cerc_val = bool(int(fila["cercania"]))
+                            antec_val = bool(int(fila["antecedentes"]))
+
+                            if res_val <= ed:
+                                (
+                                    r_porc,
+                                    riesgo,
+                                    _,
+                                    hb_ajustada,
+                                    _,
+                                    alt_eval,
+                                ) = calcular_riesgo_ponderado_oficial(
+                                    ed,
+                                    bll_val,
+                                    hb_val,
+                                    res_val,
+                                    cerc_val,
+                                    antec_val,
+                                    es_torreon_masivo,
+                                    altitud_masiva,
+                                )
+                                cursor.execute(
+                                    """
+                                    INSERT INTO registros 
+                                    (codigo_paciente, edad, bll, hb_medida, hb_ajustada, altitud_evaluacion, es_torreon, residencia, cercania, antecedentes, indice_r_porcentaje, nivel_riesgo)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                    (
+                                        cod,
+                                        ed,
+                                        bll_val,
+                                        hb_val,
+                                        hb_ajustada,
+                                        alt_eval,
+                                        int(es_torreon_masivo),
+                                        res_val,
+                                        int(cerc_val),
+                                        int(antec_val),
+                                        r_porc,
+                                        riesgo,
+                                    ),
+                                )
+                                registros_exitosos += 1
+                            else:
+                                registros_omitidos += 1
+                        except Exception:
+                            registros_omitidos += 1
+
+                    conn.commit()
+                    conn.close()
+
+                    st.success(
+                        f"Procesamiento completado: {registros_exitosos} registros ingresados correctamente."
+                    )
+                    if registros_omitidos > 0:
+                        st.warning(
+                            f"CUIDADO: {registros_omitidos} registros fueron omitidos por datos inválidos, duplicados o incoherencia biológica (Residencia > Edad)."
+                        )
+            except Exception as e:
+                st.error(
+                    f"Error al leer el archivo. Asegúrese de que tenga el formato adecuado. Detalle: {e}"
+                )
+
+# ------------------------------------------------------------------------------
+# MÓDULO 3: DASHBOARD Y ASOCIACIÓN NEUROCOGNITIVA
+# ------------------------------------------------------------------------------
+elif menu == "3. Dashboard y Asociación Neurocognitiva":
+    st.subheader("Módulo 3: Visualización Epidemiológica y Asociación Neurocognitiva")
+    conn = conectar_bd()
+    df = pd.read_sql_query("SELECT * FROM registros", conn)
+    conn.close()
+
+    if df.empty:
+        st.info(
+            "Registre casos en el Módulo 1 o en la Carga Masiva para habilitar el análisis epidemiológico."
+        )
+    else:
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total de Pacientes Evaluados", len(df))
+        col2.metric("Promedio BLL Poblacional", f"{df['bll'].mean():.2f} µg/dL")
+        col3.metric("Casos en Riesgo Alto", len(df[df["nivel_riesgo"] == "Riesgo Alto"]))
+
+        st.write("---")
+
+        tab_g1, tab_g2 = st.tabs([
+            "Distribución de Riesgo (Pastel)",
+            "Asociación BLL vs Índice de Riesgo (Dispersión)",
+        ])
+
+        with tab_g1:
+            fig1, ax1 = plt.subplots(figsize=(6, 3))
+            conteo_riesgos = df["nivel_riesgo"].value_counts()
+            colores = {
+                "Riesgo Bajo": "#28a745",
+                "Riesgo Moderado": "#ffc107",
+                "Riesgo Alto": "#dc3545",
+            }
+            col_list = [colores.get(x, "#6c757d") for x in conteo_riesgos.index]
+
+            ax1.pie(
+                conteo_riesgos,
+                labels=conteo_riesgos.index,
+                autopct="%1.1f%%",
+                colors=col_list,
+                startangle=140,
+            )
+            ax1.set_title("Distribución Poblacional según Nivel de Riesgo Neurocognitivo")
+            st.pyplot(fig1)
+
+        with tab_g2:
+            st.markdown(
+                "##### Gráfico de Asociación: Concentración de Plomo en Sangre (BLL) vs. Índice de Riesgo R (%)"
+            )
+            st.caption(
+                "Muestra la tendencia y dispersión poblacional para evaluar el impacto acumulativo del metal en la escala de riesgo."
+            )
+
+            fig2, ax2 = plt.subplots(figsize=(7, 3.5))
+
+            color_map = {
+                "Riesgo Bajo": "#28a745",
+                "Riesgo Moderado": "#ffc107",
+                "Riesgo Alto": "#dc3545",
+            }
+            df_colors = df["nivel_riesgo"].map(color_map)
+
+            ax2.scatter(
+                df["bll"],
+                df["indice_r_porcentaje"],
+                c=df_colors,
+                alpha=0.7,
+                edgecolors="k",
+                s=60,
+            )
+
+            if len(df) > 1:
+                z = np.polyfit(df["bll"], df["indice_r_porcentaje"], 1)
+                p = np.poly1d(z)
+                x_trend = np.linspace(df["bll"].min(), df["bll"].max(), 100)
+                ax2.plot(x_trend, p(x_trend), "k--", alpha=0.6, label="Tendencia Lineal")
+
+            ax2.set_xlabel("Nivel de Plomo en Sangre (BLL en µg/dL)")
+            ax2.set_ylabel("Índice de Riesgo Neurocognitivo (R %)")
+            ax2.set_title("Análisis de Asociación Epidemiológica (BLL vs Risk %)")
+            ax2.grid(True, linestyle=":", alpha=0.6)
+            ax2.legend()
+
+            st.pyplot(fig2)
