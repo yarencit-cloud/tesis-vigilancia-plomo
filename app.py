@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # ==============================================================================
-# BASE DE DATOS LOCAL (SQLite)
+# BASE DE DATOS LOCAL (SQLite) CON MIGRACIÓN AUTOMÁTICA
 # ==============================================================================
 def conectar_bd():
     return sqlite3.connect("vigilancia_plomo.db")
@@ -22,6 +22,8 @@ def conectar_bd():
 def inicializar_bd():
     conn = conectar_bd()
     cursor = conn.cursor()
+    
+    # 1. Crear tabla base si no existe
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS registros (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,8 +33,6 @@ def inicializar_bd():
             bll REAL,
             hb_medida REAL,
             hb_ajustada REAL,
-            altitud_evaluacion INTEGER,
-            es_torreon INTEGER,
             residencia INTEGER,
             cercania INTEGER,
             antecedentes INTEGER,
@@ -40,6 +40,16 @@ def inicializar_bd():
             nivel_riesgo TEXT
         )
     ''')
+    
+    # 2. Migración automática: Agregar columnas faltantes si la tabla es antigua
+    cursor.execute("PRAGMA table_info(registros)")
+    columnas_existentes = [columna[1] for columna in cursor.fetchall()]
+    
+    if "altitud_evaluacion" not in columnas_existentes:
+        cursor.execute("ALTER TABLE registros ADD COLUMN altitud_evaluacion INTEGER DEFAULT 1120")
+    if "es_torreon" not in columnas_existentes:
+        cursor.execute("ALTER TABLE registros ADD COLUMN es_torreon INTEGER DEFAULT 1")
+        
     conn.commit()
     conn.close()
 
@@ -61,7 +71,6 @@ def calcular_ajuste_altitud(es_torreon, altitud_ingresada):
         if altitud < 1000:
             return 0.0, int(altitud)
         else:
-            # Factor estándar OMS
             delta_hb = round(0.2 * (altitud / 1000.0), 2)
             return delta_hb, int(altitud)
 
@@ -157,6 +166,17 @@ if menu == "1. Captura y Evaluación Individual":
     st.subheader("Módulo 1: Captura de Variables Clínicas y Epidemiológicas")
     st.info("Ingrese la información correspondiente al expediente del paciente para procesar la clasificación preliminar.")
 
+    # Selección geográfica fuera del form para refresco dinámico instantáneo
+    st.markdown("##### Ubicación Geográfica de la Evaluación")
+    es_torreon = st.radio("¿El sitio de evaluación se ubica en Torreón, Coahuila (~1,120 msnm)?", ["Sí", "No"], key="radio_geo") == "Sí"
+    
+    if not es_torreon:
+        altitud_custom = st.number_input("Ingrese la altitud geográfica del sitio de evaluación (msnm):", min_value=0, max_value=5000, value=1000, key="num_altitud")
+    else:
+        altitud_custom = 1120
+
+    st.write("---")
+
     with st.form("form_captura", clear_on_submit=False):
         col1, col2 = st.columns(2)
 
@@ -168,14 +188,7 @@ if menu == "1. Captura y Evaluación Individual":
             hb_medida = st.number_input("Hemoglobina de Laboratorio (g/dL):", min_value=3.0, max_value=20.0, value=12.2, step=0.1)
 
         with col2:
-            st.markdown("##### Factores Geográficos, Ambientales y Exposición")
-            es_torreon = st.radio("¿Ubicación de evaluación en Torreón, Coahuila (~1,120 msnm)?", ["Sí", "No"]) == "Sí"
-            
-            if not es_torreon:
-                altitud_custom = st.number_input("Altitud geográfica del sitio de evaluación (msnm):", min_value=0, max_value=5000, value=1000)
-            else:
-                altitud_custom = 1120
-
+            st.markdown("##### Factores Ambientales y de Exposición")
             residencia = st.number_input("Tiempo de Residencia en Zona de Riesgo (Años):", min_value=0, max_value=17, value=2)
             cercania = st.selectbox("¿Reside a menos de 1 km de una Fuente Contaminante?", [False, True], format_func=lambda x: "Sí" if x else "No")
             antecedentes = st.selectbox("¿Antecedente de Loza Vidriada, Polvo o Trabajo Parental?", [False, True], format_func=lambda x: "Sí" if x else "No")
@@ -270,10 +283,10 @@ elif menu == "2. Base de Datos y Carga Epidemiológica":
         
         col_c1, col_c2 = st.columns(2)
         with col_c1:
-            es_torreon_masivo = st.radio("¿La base de datos corresponde a evaluaciones en Torreón, Coahuila (~1,120 msnm)?", ["Sí", "No"]) == "Sí"
+            es_torreon_masivo = st.radio("¿La base de datos corresponde a evaluaciones en Torreón, Coahuila (~1,120 msnm)?", ["Sí", "No"], key="radio_masivo") == "Sí"
         with col_c2:
             if not es_torreon_masivo:
-                altitud_masiva = st.number_input("Altitud promedio del sitio de recolección (msnm):", min_value=0, max_value=5000, value=1000)
+                altitud_masiva = st.number_input("Altitud promedio del sitio de recolección (msnm):", min_value=0, max_value=5000, value=1000, key="alt_masivo")
             else:
                 altitud_masiva = 1120
 
@@ -370,13 +383,11 @@ elif menu == "3. Dashboard y Asociación Neurocognitiva":
             
             fig2, ax2 = plt.subplots(figsize=(7, 3.5))
             
-            # Asignación de colores por categoría
             color_map = {'Riesgo Bajo': '#28a745', 'Riesgo Moderado': '#ffc107', 'Riesgo Alto': '#dc3545'}
             df_colors = df['nivel_riesgo'].map(color_map)
             
             ax2.scatter(df['bll'], df['indice_r_porcentaje'], c=df_colors, alpha=0.7, edgecolors='k', s=60)
             
-            # Línea de tendencia polinomial/lineal si hay suficientes datos
             if len(df) > 1:
                 z = np.polyfit(df['bll'], df['indice_r_porcentaje'], 1)
                 p = np.poly1d(z)
