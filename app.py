@@ -183,13 +183,15 @@ menu = st.sidebar.radio(
 )
 
 # ------------------------------------------------------------------------------
-# MÓDULO 1: CAPTURA Y VALIDACIÓN DE DATOS
+# MÓDULO 1: CAPTURA Y VALIDACIÓN DE DATOS (RESETEO TOTAL Y VALIDACIONES VISIBLES)
 # ------------------------------------------------------------------------------
 if menu == "1. Captura y Evaluación Individual":
     st.subheader("Módulo 1: Captura de Variables Clínicas y Epidemiológicas")
-    st.info(
-        "Ingrese la información correspondiente al expediente del paciente para procesar la clasificación preliminar."
-    )
+    st.info("Ingrese la información correspondiente al expediente del paciente para procesar la clasificación preliminar.")
+
+    # Inicializar el contador para forzar la limpieza de los number_input
+    if "form_count" not in st.session_state:
+        st.session_state["form_count"] = 0
 
     st.markdown("##### Ubicación Geográfica de la Evaluación")
     es_torreon = (
@@ -214,17 +216,25 @@ if menu == "1. Captura y Evaluación Individual":
 
     st.write("---")
 
-    # Formulario habilitado con clear_on_submit=True
-    with st.form("form_captura", clear_on_submit=True):
+    # Clave dinámica para recrear el formulario limpio
+    cnt = st.session_state["form_count"]
+
+    with st.form("form_captura"):
         col1, col2 = st.columns(2)
 
         with col1:
             st.markdown("##### Factores Clínicos y Demográficos")
             codigo = st.text_input(
-                "Código de Expediente (Anónimo):", placeholder="Ej. INF-2026-001"
+                "Código de Expediente (Anónimo):",
+                placeholder="Ej. INF-2026-001",
+                key=f"codigo_{cnt}"
             )
             edad = st.number_input(
-                "Edad del Menor (Años):", min_value=1, max_value=17, value=4
+                "Edad del Menor (Años):",
+                min_value=1,
+                max_value=17,
+                value=4,
+                key=f"edad_{cnt}"
             )
             bll = st.number_input(
                 "Nivel de Plomo en Sangre (BLL en µg/dL):",
@@ -232,6 +242,7 @@ if menu == "1. Captura y Evaluación Individual":
                 max_value=80.0,
                 value=3.2,
                 step=0.1,
+                key=f"bll_{cnt}"
             )
             hb_medida = st.number_input(
                 "Hemoglobina de Laboratorio (g/dL):",
@@ -239,6 +250,7 @@ if menu == "1. Captura y Evaluación Individual":
                 max_value=20.0,
                 value=12.2,
                 step=0.1,
+                key=f"hb_{cnt}"
             )
 
         with col2:
@@ -248,29 +260,39 @@ if menu == "1. Captura y Evaluación Individual":
                 min_value=0,
                 max_value=17,
                 value=2,
+                key=f"residencia_{cnt}"
             )
             cercania = st.selectbox(
                 "¿Reside a menos de 1 km de una Fuente Contaminante?",
                 [False, True],
                 format_func=lambda x: "Sí" if x else "No",
+                key=f"cercania_{cnt}"
             )
             antecedentes = st.selectbox(
                 "¿Antecedente de Loza Vidriada, Polvo o Trabajo Parental?",
                 [False, True],
                 format_func=lambda x: "Sí" if x else "No",
+                key=f"antecedentes_{cnt}"
             )
 
         bot_evaluar = st.form_submit_button(
             "🧪 Procesar y Guardar Caso", use_container_width=True
         )
 
+    # Procesamiento y Validaciones
     if bot_evaluar:
+        # 1. Validación: Código Vacío
         if not codigo.strip():
             st.error("Error de Validación: Debe ingresar un Código de Expediente válido.")
+        
+        # 2. Validación: Coherencia Biológica (Residencia > Edad)
         elif residencia > edad:
             st.error(
-                f"Error de Coherencia Biológica: El tiempo de residencia ({residencia} años) no puede ser mayor que la edad del niño ({edad} años)."
+                f"⚠️ Error de Coherencia Biológica: El tiempo de residencia ({residencia} años) "
+                f"no puede ser mayor que la edad del menor ({edad} años)."
             )
+        
+        # 3. Guardado Exitoso
         else:
             (
                 r_porc,
@@ -317,6 +339,7 @@ if menu == "1. Captura y Evaluación Individual":
                 conn.commit()
                 conn.close()
 
+                # Guardar resultado del caso procesado
                 st.session_state["ultimo_resultado"] = {
                     "codigo": codigo,
                     "r_porc": r_porc,
@@ -327,6 +350,11 @@ if menu == "1. Captura y Evaluación Individual":
                     "altitud_eval": altitud_eval,
                     "duplicado": False,
                 }
+                
+                # Incrementar el contador para resetear TODOS los inputs al siguiente paciente
+                st.session_state["form_count"] += 1
+                st.rerun()
+
             except sqlite3.IntegrityError:
                 st.session_state["ultimo_resultado"] = {
                     "codigo": codigo,
@@ -338,8 +366,8 @@ if menu == "1. Captura y Evaluación Individual":
                     "altitud_eval": altitud_eval,
                     "duplicado": True,
                 }
-
-            st.rerun()
+                st.session_state["form_count"] += 1
+                st.rerun()
 
     # Despliegue de los resultados guardados en sesión
     if "ultimo_resultado" in st.session_state:
@@ -390,7 +418,6 @@ if menu == "1. Captura y Evaluación Individual":
                 * **Evaluación del Neurodesarrollo:** Realizar tamizaje y seguimiento del desarrollo psicomotor y neurocognitivo.
                 * **Acción Sanitaria:** Notificación a las autoridades de salud pública para inspección ambiental en la vivienda y radio de 1 km.
                 """)
-
 # ------------------------------------------------------------------------------
 # MÓDULO 2: BASE DE DATOS Y CARGA MASIVA
 # ------------------------------------------------------------------------------
