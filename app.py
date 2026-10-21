@@ -49,8 +49,7 @@ def inicializar_bd():
 
     if "altitud_evaluacion" not in columnas_existentes:
         cursor.execute(
-            "ALTER TABLE registros ADD COLUMN altitud_evaluacion INTEGER DEFAULT"
-            " 1120"
+            "ALTER TABLE registros ADD COLUMN altitud_evaluacion INTEGER DEFAULT 1120"
         )
     if "es_torreon" not in columnas_existentes:
         cursor.execute(
@@ -68,10 +67,10 @@ inicializar_bd()
 # ALGORITMO PONDERADO Y CÁLCULO DE ALTITUD
 # ==============================================================================
 def calcular_ajuste_altitud(es_torreon, altitud_ingresada):
-    """Cálculo de la corrección de hemoglobina según altitud geográfica (msnm).
-
-    Torreón (~1,120 msnm) representa un ajuste de -0.2 g/dL. Fórmula estándar
-    OMS para altitudes >= 1,000 msnm.
+    """
+    Cálculo de la corrección de hemoglobina según altitud geográfica (msnm).
+    Torreón (~1,120 msnm) representa un ajuste de -0.2 g/dL.
+    Fórmula estándar OMS para altitudes >= 1,000 msnm.
     """
     if es_torreon:
         return 0.2, 1120
@@ -94,9 +93,9 @@ def calcular_riesgo_ponderado_oficial(
     es_torreon,
     altitud_custom,
 ):
-    """Algoritmo de ponderación normalizada (R = \sum W_i * S_i) Pesos Relativos.
-
-    (W_i):
+    """
+    Algoritmo de ponderación normalizada (R = \sum W_i * S_i)
+    Pesos Relativos (W_i):
       - W_BLL = 0.30 (30%)
       - W_Hb = 0.20 (20%)
       - W_edad = 0.15 (15%)
@@ -109,7 +108,6 @@ def calcular_riesgo_ponderado_oficial(
     hb_ajustada = hb_medida - delta_hb
 
     # 2. Asignación de Sub-puntajes y Normalización (S_i = P_i / P_max)
-    # Variable 1: BLL (P_max = 3)
     if bll < 3.5:
         p_bll = 0
     elif bll < 5.0:
@@ -120,7 +118,6 @@ def calcular_riesgo_ponderado_oficial(
         p_bll = 3
     s_bll = p_bll / 3.0
 
-    # Variable 2: Hemoglobina Ajustada (P_max = 2)
     if hb_ajustada >= 12.0:
         p_hb = 0
     elif hb_ajustada >= 11.0:
@@ -129,16 +126,9 @@ def calcular_riesgo_ponderado_oficial(
         p_hb = 2
     s_hb = p_hb / 2.0
 
-    # Variable 3: Edad (P_max = 1)
     s_edad = 1.0 if edad <= 5 else 0.0
-
-    # Variable 4: Cercanía a fuente (P_max = 1)
     s_cerc = 1.0 if cercania else 0.0
-
-    # Variable 5: Tiempo de residencia (P_max = 1)
     s_res = 1.0 if residencia >= 3 else 0.0
-
-    # Variable 6: Antecedentes ambientales (P_max = 1)
     s_antec = 1.0 if antecedentes else 0.0
 
     # 3. Cálculo del Índice R Ponderado
@@ -179,12 +169,10 @@ def calcular_riesgo_ponderado_oficial(
 # ==============================================================================
 st.title("Sistema de Vigilancia Comunitaria e Índice de Riesgo Neurocognitivo")
 st.caption(
-    "Plataforma Digital de Evaluación Preliminar de Exposición Infantil a Plomo"
-    " — Facultad de Ingeniería Mecánica y Eléctrica"
+    "Plataforma Digital de Evaluación Preliminar de Exposición Infantil a Plomo — Facultad de Ingeniería Mecánica y Eléctrica"
 )
 st.write("---")
 
-# DECLARACIÓN DEL MENÚ (Debe ir en el scope principal antes de los bloques IF)
 menu = st.sidebar.radio(
     "Navegación / Módulos:",
     [
@@ -195,4 +183,7 @@ menu = st.sidebar.radio(
 )
 
 # ------------------------------------------------------------------------------
-# MÓDULO 1: CAPTURA Y VALID
+# MÓDULO 1: CAPTURA Y VALIDACIÓN DE DATOS
+# ------------------------------------------------------------------------------
+if menu == "1. Captura y Evaluación Individual":
+    st.subheader("Módulo 1: Capt
