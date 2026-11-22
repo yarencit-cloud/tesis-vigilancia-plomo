@@ -208,9 +208,9 @@ if menu == "1. Captura y Evaluación Individual":
                 "y epidemiológicos obligatorios."
         )
 
-         elif residencia > edad:
+        elif residencia > edad:
             st.error(f"Error de Coherencia Biológica: El tiempo de residencia ({residencia} años) no puede ser mayor que la edad del niño ({edad} años).")
-         else:
+        else:
             # Conservacion del código ORIGINAL
             # Procesamiento Matemático del Algoritmo
             r_porc, riesgo, color, hb_ajustada, delta_hb, altitud_eval = calcular_riesgo_ponderado_oficial(
