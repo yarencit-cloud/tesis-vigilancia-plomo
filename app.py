@@ -169,7 +169,7 @@ if menu == "1. Captura y Evaluación Individual":
     es_torreon = st.radio("¿El sitio de evaluación se ubica en Torreón, Coahuila (~1,120 msnm)?", ["Sí", "No"], key="radio_geo") == "Sí"
     
     if not es_torreon:
-        altitud_custom = st.number_input("Ingrese la altitud geográfica del sitio de evaluación (msnm):", min_value=0, max_value=5000, value=1000, key="num_altitud")
+        altitud_custom = st.number_input("Ingrese la altitud geográfica del sitio de evaluación (msnm):", min_value=0, max_value=5000, value=None, key="num_altitud")
     else:
         altitud_custom = 1120
 
@@ -181,13 +181,13 @@ if menu == "1. Captura y Evaluación Individual":
         with col1:
             st.markdown("##### Factores Clínicos y Demográficos")
             codigo = st.text_input("Código de Expediente (Anónimo):", placeholder="Ej. INF-2026-001")
-            edad = st.number_input("Edad del Menor (Años):", min_value=1, max_value=17, value=4)
-            bll = st.number_input("Nivel de Plomo en Sangre (BLL en µg/dL):", min_value=0.0, max_value=80.0, value=3.2, step=0.1)
-            hb_medida = st.number_input("Hemoglobina de Laboratorio (g/dL):", min_value=3.0, max_value=20.0, value=12.2, step=0.1)
+            edad = st.number_input("Edad del Menor (Años):", min_value=1, max_value=17, value=None, placeholder="Ingrese la edad")
+            bll = st.number_input("Nivel de Plomo en Sangre (BLL en µg/dL):", min_value=0.0, max_value=80.0, value=None, step=0.1, placeholder="Ingresa el BLL")
+            hb_medida = st.number_input("Hemoglobina de Laboratorio (g/dL):", min_value=3.0, max_value=20.0, value=None, step=0.1, placeholder="Ingresa la Hemoglobina")
 
         with col2:
             st.markdown("##### Factores Ambientales y de Exposición")
-            residencia = st.number_input("Tiempo de Residencia en Zona de Riesgo (Años):", min_value=0, max_value=17, value=2)
+            residencia = st.number_input("Tiempo de Residencia en Zona de Riesgo (Años):", min_value=0, max_value=17, value=None, placeholder="Ingrese los años")
             cercania = st.selectbox("¿Reside a menos de 1 km de una Fuente Contaminante?", [False, True], format_func=lambda x: "Sí" if x else "No")
             antecedentes = st.selectbox("¿Antecedente de Loza Vidriada, Polvo o Trabajo Parental?", [False, True], format_func=lambda x: "Sí" if x else "No")
 
@@ -197,9 +197,21 @@ if menu == "1. Captura y Evaluación Individual":
         # Validación de Campos Obligatorios y Coherencia Biológica
         if not codigo.strip():
             st.error("Error de Validación: Debe ingresar un Código de Expediente válido.")
+        
+        # 2. Verificar campos obligatorios
+    elif any(
+        valor is None
+        for valor in [edad, bll, hb_medida, residencia]
+    ):
+        st.error(
+            "Complete todos los campos clínicos "
+            "y epidemiológicos obligatorios."
+        )
+
         elif residencia > edad:
             st.error(f"Error de Coherencia Biológica: El tiempo de residencia ({residencia} años) no puede ser mayor que la edad del niño ({edad} años).")
         else:
+            # Conservacion del código ORIGINAL
             # Procesamiento Matemático del Algoritmo
             r_porc, riesgo, color, hb_ajustada, delta_hb, altitud_eval = calcular_riesgo_ponderado_oficial(
                 edad, bll, hb_medida, residencia, cercania, antecedentes, es_torreon, altitud_custom
