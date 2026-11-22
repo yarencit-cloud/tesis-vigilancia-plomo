@@ -270,7 +270,7 @@ if menu == "1. Captura y Evaluación Individual":
                     **Recomendaciones Clínicas y Epidemiológicas:**
                     * **Prioridad Alta:** Canalización prioritaria a valoración médica especializada (pediatría/toxicología) e intervención ambiental inmediata.
                     * **Evaluación del Neurodesarrollo:** Realizar tamizaje y seguimiento del desarrollo psicomotor y neurocognitivo.
-                    * **Acción Sanitaria:** Notificación a las autoridades de salud pública para inspección ambiental en la vivienda y radio de 1 km.
+                    * **Acción Sanitaria:** Recomendar la valoración por personal de salud para determinar conforme a la normativa aplicable, si corresponde realizar una notificación sanitaria o solicitar una evaluación ambiental.
                     """)
 
 # ------------------------------------------------------------------------------
