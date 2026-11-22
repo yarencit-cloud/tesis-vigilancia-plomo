@@ -90,16 +90,14 @@ def calcular_riesgo_ponderado_oficial(edad, bll, hb_medida, residencia, cercania
     hb_ajustada = hb_medida - delta_hb
 
     # 2. Asignación de Sub-puntajes y Normalización (S_i = P_i / P_max)
-    # Variable 1: BLL (P_max = 3)
-    if bll < 3.5:
+    # Variable 1: BLL (P_max = 2)
+    if bll < 5:
         p_bll = 0
-    elif bll < 5.0:
-        p_bll = 1
     elif bll < 10.0:
+        p_bll = 1
+    else: 
         p_bll = 2
-    else:
-        p_bll = 3
-    s_bll = p_bll / 3.0
+    s_bll = p_bll / 2
 
     # Variable 2: Hemoglobina Ajustada (P_max = 2)
     if hb_ajustada >= 12.0:
@@ -112,7 +110,7 @@ def calcular_riesgo_ponderado_oficial(edad, bll, hb_medida, residencia, cercania
 
     # Variable 3: Edad (P_max = 1)
     s_edad = 1.0 if edad <= 5 else 0.0
-
+    fuera_pblación_prioritaria=edad >5
     # Variable 4: Cercanía a fuente (P_max = 1)
     s_cerc = 1.0 if cercania else 0.0
 
@@ -225,7 +223,12 @@ if menu == "1. Captura y Evaluación Individual":
             # Módulo de Visualización de Resultados
             st.write("---")
             st.subheader("Resultado de la Clasificación de Riesgo Ponderado")
-            
+            if edad > 5:
+                st.warning(
+                    "Paciente mayor de 5 años: fuera de la población prioritaria. "
+                    "La clasificación presentada es EXPLORATORIA y no está validada clínicamente"
+                )
+                
             res_col1, res_col2 = st.columns([1, 2])
             
             with res_col1:
