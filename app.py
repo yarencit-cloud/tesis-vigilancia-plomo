@@ -260,7 +260,7 @@ if menu == "1. Captura y Evaluación Individual":
                     st.warning(f"### CUIDADO - Clasificación: **{riesgo.upper()}**")
                     st.markdown("""
                     **Recomendaciones Clínicas y Epidemiológicas:**
-                    * **Seguimiento:**Canalizar a valoración por personal de salud para determinar la necesidad y seguimiento del nivel de plomo en sangre conforme a los criterios clínicos y normativos aplicables.
+                    * **Seguimiento:** Canalizar a valoración por personal de salud para determinar la necesidad y seguimiento del nivel de plomo en sangre conforme a los criterios clínicos y normativos aplicables.
                     * **Evaluación Médica:** Canalizar a evaluación nutricional para descartar deficiencia de hierro/anemia.
                     * **Intervención Doméstica:** Identificar y eliminar la fuente de exposición en el hogar (inspección de loza vidriada o descascarillado de pintura).
                     """)
