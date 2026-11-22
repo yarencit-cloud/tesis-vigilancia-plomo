@@ -199,8 +199,8 @@ if menu == "1. Captura y Evaluación Individual":
             st.error("Error de Validación: Debe ingresar un Código de Expediente válido.")
         
         # 2. Verificar campos obligatorios
-    elif any(
-        valor is None
+        elif any(
+            valor is None
         for valor in [edad, bll, hb_medida, residencia]
     ):
         st.error(
@@ -208,7 +208,7 @@ if menu == "1. Captura y Evaluación Individual":
             "y epidemiológicos obligatorios."
         )
 
-        elif residencia > edad:
+         elif residencia > edad:
             st.error(f"Error de Coherencia Biológica: El tiempo de residencia ({residencia} años) no puede ser mayor que la edad del niño ({edad} años).")
         else:
             # Conservacion del código ORIGINAL
