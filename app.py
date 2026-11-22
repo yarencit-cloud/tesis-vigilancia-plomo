@@ -233,6 +233,10 @@ if menu == "1. Captura y Evaluación Individual":
             
             with res_col1:
                 st.metric(label="Índice de Riesgo (R %)", value=f"{r_porc}%")
+                st.metric(
+                    label="Plomo en sanagre (BLL)",
+                    value=f"{bll:.1f} µg/dL"
+                )
                 st.caption(f"Ajuste por Altitud ({altitud_eval} msnm): **-{delta_hb:.2f} g/dL** | Hb Ajustada: **{hb_ajustada:.2f} g/dL**")
 
             with res_col2:
