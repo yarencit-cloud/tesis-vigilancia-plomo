@@ -240,7 +240,15 @@ if menu == "1. Captura y Evaluación Individual":
                 st.caption(f"Ajuste por Altitud ({altitud_eval} msnm): **-{delta_hb:.2f} g/dL** | Hb Ajustada: **{hb_ajustada:.2f} g/dL**")
 
             with res_col2:
+                if bll >= 5.0:
+                    st.warning(
+                        "AVISO DE EXPOSICIÓN AL PLOMO: BLL igual o superior "
+                        "a 5 µg/dL. Se recomienda valoración por personal "
+                        "de salud para determinar las acciones de seguimiento "
+                        "conforme a los criterios aplicables."   
+                    )
                 if color == "green":
+                    
                     st.success(f"### Clasificación: **{riesgo.upper()}**")
                     st.markdown("""
                     **Recomendaciones Clínicas y Epidemiológicas:**
@@ -252,7 +260,7 @@ if menu == "1. Captura y Evaluación Individual":
                     st.warning(f"### CUIDADO - Clasificación: **{riesgo.upper()}**")
                     st.markdown("""
                     **Recomendaciones Clínicas y Epidemiológicas:**
-                    * **Seguimiento:** Monitoreo comunitario continuo y reprogramación de prueba de plomo en sangre (BLL) en 3 a 6 meses.
+                    * **Seguimiento:**Canalizar a valoración por personal de salud para determinar la necesidad y seguimiento del nivel de plomo en sangre conforme a los criterios clínicos y normativos aplicables.
                     * **Evaluación Médica:** Canalizar a evaluación nutricional para descartar deficiencia de hierro/anemia.
                     * **Intervención Doméstica:** Identificar y eliminar la fuente de exposición en el hogar (inspección de loza vidriada o descascarillado de pintura).
                     """)
