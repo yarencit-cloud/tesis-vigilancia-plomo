@@ -251,10 +251,10 @@ if menu == "1. Captura y Evaluación Individual":
                     
                     st.success(f"### Clasificación: **{riesgo.upper()}**")
                     st.markdown("""
-                    **Recomendaciones Clínicas y Epidemiológicas:**
-                    * **Monitoreo:** Mantener vigilancia comunitaria de rutina en campañas sanitarias.
-                    * **Medidas Preventivas:** Promover hábitos comunitarios de higiene (lavado frecuente de manos mano-boca).
-                    * **Nutrición:** Fomentar una dieta balanceada rica en calcio, hierro y vitamina C para mitigar la absorción de plomo.
+                    **Orientaciones preventivas y de seguimiento:**
+                    * **Vigilancia:** Mantener seguimiento preventivo conforme a la valoración del personal de salud.
+                    * **Prevención:** Promover el lavado frecuente de manos y la reducción del contacto con posibles fuentes de plomo.
+                    * **Nutrición:** Favorecer una alimentación equilibrada que incluya fuentes de hierro y calcio.
                     """)
                 elif color == "orange":
                     st.warning(f"### CUIDADO - Clasificación: **{riesgo.upper()}**")
